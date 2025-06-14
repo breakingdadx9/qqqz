@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Anonymous Chat</title>
+  <style>
+    body { font-family: sans-serif; background: #f0f0f0; margin: 0; padding: 0; }
+    #chat-box { max-width: 800px; margin: auto; background: #fff; padding: 20px; margin-top: 50px; border-radius: 10px; }
+    ul { list-style: none; padding: 0; max-height: 400px; overflow-y: auto; }
+    li { padding: 10px; border-bottom: 1px solid #ddd; }
+    form { display: flex; gap: 10px; margin-top: 10px; }
+    input[type=text], input[type=file] { flex: 1; padding: 10px; }
+    button { padding: 10px; }
+  </style>
+</head>
+<body>
+  <div id="chat-box">
+    <h2>Anonymous Live Chat + File Upload</h2>
+    <ul id="messages"></ul>
+    <form id="form">
+      <input id="input" type="text" placeholder="Type a message..." autocomplete="off" required />
+      <input id="file" type="file" />
+      <button type="submit">Send</button>
+    </form>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io();
+    const form = document.getElementById('form');
+    const input = document.getElementById('input');
+    const fileInput = document.getElementById('file');
+    const messages = document.getElementById('messages');
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      let text = input.value;
+      let file = fileInput.files[0];
+      let fileData = null;
+
+      if (file) {
+        const formData = new FormData();
+        formData.append('file', file);
+
+        const res = await fetch('/upload', {
+          method: 'POST',
+          body: formData
+        });
+
+        fileData = await res.json();
+      }
+
+      socket.emit('chat message', {
+        text: text,
+        fileUrl: fileData ? fileData.fileUrl : null,
+        fileName: fileData ? fileData.originalName : null
+      });
+
+      input.value = '';
+      fileInput.value = '';
+    });
+
+    socket.on('chat message', (msg) => {
+      const item = document.createElement('li');
+      item.innerHTML = `
+        <strong>[${msg.time}] ${msg.ip}</strong>: ${msg.text}
+        ${msg.fileUrl ? `<br><a href="${msg.fileUrl}" target="_blank">📎 ${msg.fileName}</a>` : ''}
+      `;
+      messages.appendChild(item);
+      messages.scrollTop = messages.scrollHeight;
+    });
+  </script>
+</body>
+</html>
